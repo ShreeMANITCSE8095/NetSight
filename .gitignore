@@ -1,0 +1,51 @@
+# Build & Binary Artifacts
+engine/build/
+*.exe
+*.obj
+*.lib
+*.pdb
+*.ilk
+*.idb
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+
+# Node & Frontend
+dashboard/node_modules/
+dashboard/dist/
+.vite/
+
+# Runtime & Databases
+netsight.db
+netsight.db-wal
+netsight.db-shm
+uploads/
+outputs/
+test_data/bench_out.pcap
+test_data/out.pcap
+
+# OS & IDE
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+# Code Dumps & Local Notes
+netsight_codebase.txt
+NetSight_codebase.txt
+netsight_sources.txt
+NetSight_sources.txt
+NetSight_part2.txt
+*.txt.bak
+NetSight_Review.md
+issues.md
+docs/INTERVIEW_NOTES.md
+
+# Captures & PCAP outputs
+*.zip
+test_data/demo_real.pcap
+test_data/*.real.pcap
+

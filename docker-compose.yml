@@ -1,0 +1,52 @@
+services:
+  engine:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.engine
+    container_name: netsight-engine
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
+    ports:
+      - "127.0.0.1:9999:9999"
+    volumes:
+      - netsight-data:/app/data
+      - ./rules.json:/app/data/rules.json:rw
+    command: ["--replay", "/app/test_data/test_dpi.pcap", "--host", "0.0.0.0", "--port", "9999", "--speed", "10", "--rules", "/app/data/rules.json"]
+    restart: unless-stopped
+
+  collector:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.collector
+    container_name: netsight-collector
+    depends_on:
+      - engine
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      - ENGINE_HOST=engine
+      - ENGINE_PORT=9999
+      - COLLECTOR_HOST=0.0.0.0
+      - COLLECTOR_PORT=8000
+      - DB_PATH=/app/data/netsight.db
+      - RULES_PATH=/app/data/rules.json
+    volumes:
+      - netsight-data:/app/data
+      - ./rules.json:/app/data/rules.json:rw
+    restart: unless-stopped
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.dashboard
+    container_name: netsight-dashboard
+    depends_on:
+      - collector
+    ports:
+      - "127.0.0.1:3000:80"
+    restart: unless-stopped
+
+volumes:
+  netsight-data:
+
