@@ -1,0 +1,42 @@
+# Multi-stage Dockerfile for NetSight C++ DPI Engine
+FROM ubuntu:24.04 AS builder
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    cmake \
+    libpcap-dev \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY engine/ /app/engine/
+
+WORKDIR /app/engine
+RUN cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-O3 -DNDEBUG" \
+    && cmake --build build --config Release \
+    && strip build/netsight-engine
+
+# Runtime image
+FROM ubuntu:24.04
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpcap0.8t64 \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY --from=builder /app/engine/build/netsight-engine /usr/local/bin/netsight-engine
+COPY test_data/ /app/test_data/
+COPY rules.json /app/rules.json
+
+RUN mkdir -p /app/data && \
+    useradd -m -u 1000 netsight && \
+    chown -R netsight:netsight /app /app/data
+
+USER netsight
+EXPOSE 9999
+
+ENTRYPOINT ["netsight-engine"]
+CMD ["--replay", "/app/test_data/test_dpi.pcap", "--host", "0.0.0.0", "--port", "9999", "--speed", "10", "--rules", "/app/rules.json"]
+

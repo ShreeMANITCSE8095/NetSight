@@ -1,0 +1,52 @@
+# Multi-stage build to compile engine binary for offline analyze
+FROM ubuntu:24.04 AS engine-builder
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    cmake \
+    libpcap-dev \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app/engine
+COPY engine/ /app/engine/
+RUN cmake -B build -DCMAKE_BUILD_TYPE=Release \
+    && cmake --build build --config Release
+
+# Runtime image for NetSight Python Collector
+FROM python:3.11-slim
+WORKDIR /app
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpcap0.8t64 \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=engine-builder /app/engine/build/netsight-engine /usr/local/bin/netsight-engine
+
+COPY collector/requirements.txt /app/collector/requirements.txt
+RUN pip install --no-cache-dir -r /app/collector/requirements.txt
+
+COPY collector/ /app/collector/
+COPY rules.json /app/rules.json
+
+# Pre-create /app/data and temp folders so named volume mount inherits netsight ownership
+RUN mkdir -p /app/data /app/uploads /app/outputs && \
+    useradd -m -u 1000 netsight && \
+    chown -R netsight:netsight /app /app/data /app/uploads /app/outputs
+
+ENV ENGINE_HOST=engine
+ENV ENGINE_PORT=9999
+ENV COLLECTOR_HOST=0.0.0.0
+ENV COLLECTOR_PORT=8000
+ENV DB_PATH=/app/data/netsight.db
+ENV RULES_PATH=/app/data/rules.json
+ENV ENGINE_BINARY=/usr/local/bin/netsight-engine
+
+USER netsight
+EXPOSE 8000
+
+CMD ["python", "-m", "uvicorn", "collector.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
